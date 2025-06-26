@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive CV - Ameet Athani</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals (Stone, Slate, Teal) -->
+    <!-- Application Structure Plan: The application is designed as a single-page interactive dashboard. This structure was chosen over a linear document format to allow recruiters and other viewers to explore the information non-sequentially based on their interests. The core of the app is an an interactive career timeline that dynamically displays detailed job descriptions and educational milestones, encouraging engagement. This is supported by thematic sections for skills (visualized with a chart for impact, specifically focusing on travel experience), key quantifiable achievements (animated for emphasis), certifications/projects, and a new LLM-powered feature to generate a value proposition. This user-centric, dashboard-style approach provides a more engaging and efficient way to consume the dense information of a 15-year career compared to traditional CV layouts. -->
+    <!-- Visualization & Content Choices: 
+        - Career History & Education -> Goal: Show change over time & details on demand -> Viz: Interactive HTML/CSS Timeline -> Interaction: On-click displays corresponding job/education details -> Justification: Encourages exploration and connects roles and academic phases to their descriptions intuitively, providing a comprehensive career narrative.
+        - Core Skills -> Goal: Organize & Compare -> Viz: Chart.js Polar Area Chart -> Interaction: Hover tooltips -> Justification: Visually groups combined skills into core competencies, specifically highlighting expertise gained over 15 years with a strong focus on travel, offering a dynamic and memorable view of expertise.
+        - Key Metrics (Years, People Upskilled) -> Goal: Inform with impact -> Viz: Large animated numbers -> Interaction: Animate on scroll into view -> Justification: Draws immediate attention to key quantifiable achievements.
+        - Certifications & Projects -> Goal: Organize & Inform -> Viz: Tailwind CSS Card Layout -> Interaction: Subtle hover effects -> Justification: Clean, modern, and scannable presentation for important supplementary information.
+        - Value Proposition Generator (New) -> Goal: Summarize & highlight key strengths -> Viz: Text area for AI-generated text -> Interaction: Button click triggers LLM call -> Justification: Provides a quick, AI-assisted summary of the candidate's value, useful for quick overviews. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .timeline-item::after {
+            content: '';
+            position: absolute;
+            width: 2px;
+            height: 100%;
+            background-color: #d1d5db;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: -1;
+        }
+        .timeline-item:last-child::after {
+            display: none;
+        }
+        .timeline-dot {
+            transition: all 0.3s ease;
+        }
+        .timeline-item.active .timeline-dot {
+            background-color: #0d9488;
+            transform: scale(1.5);
+        }
+        .timeline-item.active .timeline-company,
+        .timeline-item.active .timeline-degree {
+            color: #0d9488;
+            font-weight: 700;
+        }
+        .job-detail {
+            transition: all 0.5s ease-in-out;
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+        }
+        .job-detail.active {
+            max-height: 2000px;
+            opacity: 1;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+         @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border-radius: 1rem;
+            max-width: 600px;
+            width: 90%;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            position: relative;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800">
+
+    <nav id="navbar" class="sticky top-0 z-50 bg-white/80 backdrop-blur-lg shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex-shrink-0">
+                    <a href="#home" class="text-2xl font-bold text-teal-700">Ameet Athani</a>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#timeline" class="text-stone-600 hover:bg-teal-600 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Career Timeline</a>
+                        <a href="#expertise" class="text-stone-600 hover:bg-teal-600 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Expertise</a>
+                        <a href="#projects" class="text-stone-600 hover:bg-teal-600 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Certifications & Projects</a>
+                        <a href="#contact" class="text-stone-600 hover:bg-teal-600 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Contact</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-4 py-8 md:py-12">
+
+        <section id="home" class="text-center py-16">
+            <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-stone-900">Senior Manager, Operations</h1>
+            <p id="profile-summary-text" class="mt-6 max-w-3xl mx-auto text-lg md:text-xl text-stone-600">
+                Highly accomplished and results-driven professional with over 15 years of distinguished career progression, including more than a decade spearheading operational excellence within the dynamic travel and travel technology industries.
+            </p>
+            <div class="mt-8 flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+                <a href="#timeline" class="inline-block bg-teal-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-teal-700 transition-transform transform hover:scale-105">Explore My Journey</a>
+                <button id="generate-value-prop-btn" class="inline-block bg-teal-500 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-teal-600 transition-transform transform hover:scale-105">✨ Generate My Value Proposition ✨</button>
+            </div>
+        </section>
+        
+        <section id="metrics" class="py-12 bg-white rounded-2xl shadow-md">
+            <h2 class="text-3xl font-bold text-center text-stone-800 mb-2">Key Career Highlights</h2>
+            <p class="text-center text-stone-500 mb-10">Quantifiable impact across my professional journey.</p>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 text-center max-w-5xl mx-auto">
+                <div>
+                    <span class="block text-5xl font-extrabold text-teal-600" data-target="15">0</span>
+                    <span class="block mt-2 text-lg text-stone-600">Years of Experience</span>
+                </div>
+                <div>
+                    <span class="block text-5xl font-extrabold text-teal-600" data-target="10">0</span>
+                    <span class="block mt-2 text-lg text-stone-600">Years in Travel & Tech</span>
+                </div>
+                <div>
+                    <span class="block text-5xl font-extrabold text-teal-600" data-target="30">0</span>
+                    <span class="block mt-2 text-lg text-stone-600">Team Members Upskilled</span>
+                </div>
+                <div>
+                    <span class="block text-5xl font-extrabold text-teal-600" data-target="150">0</span>
+                    <span class="block mt-2 text-lg text-stone-600">Team Members Managed</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="timeline" class="py-16">
+            <h2 class="text-3xl font-bold text-center text-stone-800 mb-2">Interactive Career Timeline</h2>
+            <p class="text-center text-stone-500 mb-12">Click on a milestone to see the detailed accomplishments or academic focus.</p>
+            <div class="flex flex-col md:flex-row justify-between max-w-7xl mx-auto">
+                <div id="timeline-selector" class="w-full md:w-1/4 space-y-8 md:space-y-0 md:pr-8">
+                </div>
+                <div class="w-full md:w-3/4 mt-12 md:mt-0 md:pl-8 border-t-2 md:border-t-0 md:border-l-2 border-stone-200">
+                    <div id="timeline-details">
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section id="expertise" class="py-12 bg-white rounded-2xl shadow-md">
+             <h2 class="text-3xl font-bold text-center text-stone-800 mb-2">Core Expertise: Travel & Operations</h2>
+            <p class="text-center text-stone-500 mb-10 max-w-2xl mx-auto">This chart visually represents my combined 15 years of core expertise, with a strong emphasis on skills developed and applied extensively within the travel and travel technology sectors.</p>
+            <div class="chart-container">
+                <canvas id="skillsChart"></canvas>
+            </div>
+             <p class="text-center text-stone-500 mt-8 max-w-2xl mx-auto">My skills encompass a broad range of strategic and operational capabilities, from high-level planning and financial management to hands-on team leadership and process optimization. This diverse skill set has been crucial in driving success within the fast-paced travel tech industry.</p>
+        </section>
+
+        <section id="projects" class="py-16">
+            <h2 class="text-3xl font-bold text-center text-stone-800 mb-12">Certifications & Projects</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-xl shadow-md hover:shadow-xl transition-shadow">
+                    <h3 class="font-bold text-xl text-teal-700">Airline Reporting Corporation (ARC Specialist)</h3>
+                    <p class="text-sm text-stone-500 mb-2">March 2023</p>
+                    <p class="text-stone-600">Certification highlighting expertise in ARC regulations and transactions between airlines and US-based travel agencies, including ticket transaction settlement services.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md hover:shadow-xl transition-shadow">
+                    <h3 class="font-bold text-xl text-teal-700">Major Concurrent Project: Seven Beans Café</h3>
+                    <p class="text-sm text-stone-500 mb-2">July 2011 – December 2011</p>
+                    <p class="text-stone-600">Led a service branding and promotions project, leveraging Social Media Marketing to elevate brand visibility and revolutionize their digital presence.</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md hover:shadow-xl transition-shadow">
+                    <h3 class="font-bold text-xl text-teal-700">Internship: Prestige Group</h3>
+                    <p class="text-sm text-stone-500 mb-2">July 2010 – September 2010</p>
+                    <p class="text-stone-600">Project on "Visual Merchandising and Its Impact On Customers," observing how strategic product placement and signage drove customer engagement and sales.</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+    
+    <footer id="contact" class="bg-stone-800 text-white">
+        <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8 text-center">
+             <h2 class="text-3xl font-bold text-center text-white mb-4">Get In Touch</h2>
+             <p class="text-stone-300 mb-6">Feel free to reach out for collaboration or inquiries.</p>
+             <div class="flex justify-center items-center space-x-6">
+                <a href="mailto:ameet.athani@yahoo.com" class="text-teal-400 hover:text-teal-300 text-lg">ameet.athani@yahoo.com</a>
+                <span class="text-stone-500">|</span>
+                <a href="https://www.linkedin.com/in/ameet-athani/" target="_blank" class="text-teal-400 hover:text-teal-300 text-lg">LinkedIn</a>
+             </div>
+             <p class="mt-8 text-sm text-stone-500">© 2025 Ameet Athani. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Value Proposition Modal -->
+    <div id="valuePropModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-button absolute top-4 right-6">&times;</span>
+            <h3 class="text-2xl font-bold text-teal-700 mb-4">Your Value Proposition ✨</h3>
+            <div id="valuePropOutput" class="min-h-[100px] bg-stone-100 p-4 rounded-md text-stone-700 mb-4 flex items-center justify-center">
+                <div id="loadingIndicator" class="hidden animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
+                <p id="valuePropText" class="text-center">Click "Generate" to create your statement.</p>
+            </div>
+            <p class="text-sm text-stone-500 mt-2">This statement is AI-generated and can be used as a starting point. Always review and refine for accuracy and personal touch.</p>
+        </div>
+    </div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    const experienceData = [
+    {
+        type: 'work',
+        company: 'Itilite Inc',
+        role: 'Senior Manager – Operations',
+        period: 'July 2021 – PRESENT',
+        details: [
+            'Lead global travel support operations, ensuring seamless end-to-end service delivery for enterprise clients with a strong focus on SLA adherence and service excellence.',
+            'Champion customer experience by driving proactive, high-touch support strategies that enhance satisfaction, build trust, and foster long-term client relationships.',
+            'Design and execute scalable operational workflows by leveraging process optimization, automation, and AI to improve efficiency and reduce turnaround time.',
+            'Manage a team of skilled travel consultants through structured 1:1s, coaching, and performance development plans, fostering growth and capability building.',
+            'Apply strategic, data-driven decision-making by leveraging performance analytics and travel tech insights to anticipate challenges and steer improvements.',
+            'Handle high-priority escalations and drive structured root cause analysis to implement long-term, quality-enhancing process improvements.',
+            'Collaborate cross-functionally with Product, Engineering, and Customer Success teams to deliver cohesive, integrated solutions for enterprise clients.',
+            'Oversee operational budgets, cost forecasts, and revenue strategies with strong financial acumen and negotiation skills.',
+            'Demonstrate deep technical expertise across major Global Distribution Systems (GDS) including Sabre, Amadeus, and Travelport Galileo, as well as CRM and support platforms like Salesforce, Freshdesk, Twilio, Nextiva, and Jira.'
+        ]
+    }
+]
+        },
+        {
+            type: 'work',
+            company: 'Flatworld Solutions Inc',
+            role: 'Project Manager',
+            period: 'Dec 2017 – May 2021',
+            details: [
+                'Collaborated with cross-functional teams and end-clients to analyze requirements and lead complex process transitions.',
+                'Took complete ownership of client management, ensuring account health and service delivery to guarantee utmost client satisfaction.',
+                'Effectively distributed responsibilities among project team members, closely monitoring progress to ensure seamless execution.',
+                'Ensured strict adherence to project plans and timelines, consistently surpassing client expectations through meticulous tracking.',
+                'Liaised with operations, HR, & IT on critical training, recruitment, and system requirements for projects.',
+                'Facilitated negotiations for Service Level Agreements (SLAs) and Key Performance Indicators (KPIs).',
+                'Coached and supported operations teams across multiple global locations (India, Philippines, Bolivia, London).'
+            ]
+        },
+        {
+            type: 'work',
+            company: '247.Ai (Expedia Inc)',
+            role: 'Team Lead Operations',
+            period: 'Nov 2011 – Nov 2017',
+            details: [
+                'Oversaw comprehensive people and performance management, including continuous monitoring, feedback, and coaching.',
+                'Conducted analysis of key process drivers to identify trends and implemented measures to improve efficiency and reduce turnaround time.',
+                'Spearheaded innovation initiatives, driving robust process improvement and introducing new ways of working.',
+                'Implemented best-in-class processes to exceed productivity and quality SLAs, ensuring superior customer experience.',
+                'Led critical process improvement efforts that delivered significant business impacts in quality, productivity, and CX.',
+                'Successfully upskilled close to 30 team members, leading to their promotion to roles like Trainers, Quality Analysts, and Team Leaders.',
+                'Conducted comprehensive skill gap analyses to ensure workplace efficiency and effectively allocate resources.'
+            ]
+        },
+        {
+            type: 'education',
+            institution: 'Global Business School',
+            degree: 'MBA - Marketing & Finance',
+            period: '2009 – 2011',
+            details: [
+                'Completed dual specialization Master of Business Administration from Karnataka University of Dharwad.',
+                'Focused on a blend of Marketing and Finance principles, providing a strong foundation in business strategy and financial management.',
+                'Developed analytical and strategic thinking skills crucial for operational leadership roles.'
+            ]
+        },
+        {
+            type: 'work',
+            company: 'Aditya Birla Minacs',
+            role: 'Senior Executive Operations',
+            period: 'Aug 2008 – Aug 2009',
+            details: [
+                'Worked as part of the Inbound Customer Support team for Capital One, a key client of Aditya Birla Minacs.',
+                'Demonstrated exceptional problem-solving abilities, effectively addressing and resolving complex customer issues to ensure satisfaction.',
+                'Developed and implemented strategic processes to enhance overall operational efficiency and service delivery.',
+                'Provided critical leadership and operational support across all areas of operations.',
+                'Collaborated effectively with team members to deliver high-quality customer service and consistently meet demanding performance targets.'
+            ]
+        }
+    ];
+
+    const timelineSelector = document.getElementById('timeline-selector');
+    const timelineDetails = document.getElementById('timeline-details');
+
+    experienceData.forEach((item, index) => {
+        const selectorItem = document.createElement('div');
+        selectorItem.className = `timeline-item relative cursor-pointer p-4 rounded-lg transition-colors duration-300 ${index === 0 ? 'active' : ''}`;
+        selectorItem.dataset.id = `${item.type}-${item.company || item.institution}`; 
+        
+        let displayTitle = '';
+        let displaySubtitle = '';
+        let titleClass = '';
+        if (item.type === 'work') {
+            displayTitle = item.company;
+            displaySubtitle = item.period;
+            titleClass = 'timeline-company';
+        } else if (item.type === 'education') {
+            displayTitle = item.degree;
+            displaySubtitle = item.period;
+            titleClass = 'timeline-degree';
+        }
+
+        selectorItem.innerHTML = `
+            <div class="timeline-dot absolute left-1/2 -top-4 md:left-auto md:-top-0 md:-right-10 w-4 h-4 bg-stone-300 rounded-full border-4 border-white"></div>
+            <p class="${titleClass} text-lg font-semibold text-stone-700">${displayTitle}</p>
+            <p class="text-sm text-stone-500">${displaySubtitle}</p>
+        `;
+        timelineSelector.appendChild(selectorItem);
+
+        const detailItem = document.createElement('div');
+        detailItem.id = `detail-${item.type}-${item.company || item.institution}`;
+        detailItem.className = `job-detail space-y-4 ${index === 0 ? 'active' : ''}`;
+        
+        let detailContent = '';
+        if (item.type === 'work') {
+            detailContent = `
+                <h3 class="text-2xl font-bold text-teal-700">${item.role}</h3>
+                <p class="text-md text-stone-500 font-medium">${item.company} | ${item.period}</p>
+                <ul class="list-disc list-outside space-y-2 pl-5 text-stone-600">
+                    ${item.details.map(d => `<li>${d}</li>`).join('')}
+                </ul>
+            `;
+        } else if (item.type === 'education') {
+            detailContent = `
+                <h3 class="text-2xl font-bold text-teal-700">${item.degree}</h3>
+                <p class="text-md text-stone-500 font-medium">${item.institution} | ${item.period}</p>
+                <ul class="list-disc list-outside space-y-2 pl-5 text-stone-600">
+                    ${item.details.map(d => `<li>${d}</li>`).join('')}
+                </ul>
+            `;
+        }
+        detailItem.innerHTML = detailContent;
+        timelineDetails.appendChild(detailItem);
+    });
+
+    timelineSelector.addEventListener('click', (e) => {
+        const selectedItem = e.target.closest('.timeline-item');
+        if (!selectedItem) return;
+
+        const itemId = selectedItem.dataset.id;
+
+        timelineSelector.querySelectorAll('.timeline-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        selectedItem.classList.add('active');
+
+        timelineDetails.querySelectorAll('.job-detail').forEach(detail => {
+            detail.classList.remove('active');
+        });
+        document.getElementById(`detail-${itemId}`).classList.add('active');
+    });
+
+    const skillsCtx = document.getElementById('skillsChart').getContext('2d');
+    const skillsChart = new Chart(skillsCtx, {
+        type: 'polarArea',
+        data: {
+            labels: ['Strategic Planning (Travel Tech)', 'Operational Excellence (Travel)', 'Customer Loyalty (Travel Tech)', 'Process Optimization (Travel Ops)', 'Vendor & Partner Management', 'Global Team Leadership'],
+            datasets: [{
+                label: 'Core Expertise',
+                data: [95, 92, 90, 88, 85, 93],
+                backgroundColor: [
+                    'rgba(15, 118, 110, 0.7)',
+                    'rgba(13, 148, 136, 0.7)',
+                    'rgba(45, 212, 191, 0.7)',
+                    'rgba(107, 114, 128, 0.7)',
+                    'rgba(75, 85, 99, 0.7)',
+                    'rgba(55, 65, 81, 0.7)'
+                ],
+                borderColor: 'rgba(255, 255, 255, 0.8)',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                r: {
+                    angleLines: {
+                        display: false
+                    },
+                    suggestedMin: 0,
+                    suggestedMax: 100,
+                    grid: {
+                        color: 'rgba(200, 200, 200, 0.2)'
+                    },
+                    ticks: {
+                       display: false
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                     labels: {
+                        color: '#44403c',
+                        font: {
+                            size: 14
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.label}: Expertise Level ${context.raw}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    const animateCounters = () => {
+        const counters = document.querySelectorAll('#metrics [data-target]');
+        const speed = 200; 
+
+        counters.forEach(counter => {
+            const updateCount = () => {
+                const target = +counter.getAttribute('data-target');
+                let currentText = counter.innerText;
+                let count = parseFloat(currentText); 
+
+                if (isNaN(count)) {
+                    count = 0; 
+                }
+                
+                const inc = target / speed;
+
+                if (count < target) {
+                    counter.innerText = Math.ceil(count + inc);
+                    setTimeout(updateCount, 10);
+                } else {
+                    counter.innerText = target + '+';
+                }
+            };
+            updateCount();
+        });
+    };
+    
+    const metricsSection = document.getElementById('metrics');
+    const observer = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                animateCounters();
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.5 });
+    
+    observer.observe(metricsSection);
+
+    // Gemini API Integration for Value Proposition
+    const generateValuePropBtn = document.getElementById('generate-value-prop-btn');
+    const valuePropModal = document.getElementById('valuePropModal');
+    const closeButton = valuePropModal.querySelector('.close-button');
+    const valuePropOutput = document.getElementById('valuePropOutput');
+    const valuePropText = document.getElementById('valuePropText');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const profileSummaryText = document.getElementById('profile-summary-text').innerText;
+
+    generateValuePropBtn.addEventListener('click', async () => {
+        valuePropModal.style.display = 'flex'; // Show modal
+        valuePropText.innerText = ''; // Clear previous text
+        valuePropText.classList.add('hidden');
+        loadingIndicator.classList.remove('hidden'); // Show loading indicator
+
+        let fullExperienceDetails = '';
+        experienceData.forEach(item => {
+            if (item.type === 'work') {
+                fullExperienceDetails += `- ${item.role} at ${item.company} (${item.period}): ${item.details.join('; ')}\n`;
+            } else if (item.type === 'education') {
+                fullExperienceDetails += `- ${item.degree} from ${item.institution} (${item.period}): ${item.details.join('; ')}\n`;
+            }
+        });
+
+        const prompt = `Based on the following professional profile summary, and detailed work and education experience, generate a concise and impactful "Why Hire Me?" statement (around 3-4 sentences) that highlights my key strengths and value proposition for an operational leadership role, especially in travel and travel technology.
+
+Profile Summary: "${profileSummaryText}"
+
+Detailed Experiences:
+${fullExperienceDetails}
+
+Focus on leadership, operational excellence, travel/tech industry expertise, quantifiable impact, and continuous improvement. Ensure the tone is professional and confident.`;
+
+        try {
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            const payload = { contents: chatHistory };
+            const apiKey = ""; // If you want to use models other than gemini-2.0-flash or imagen-3.0-generate-002, provide an API key here. Otherwise, leave this as-is.
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+
+            loadingIndicator.classList.add('hidden'); // Hide loading indicator
+            valuePropText.classList.remove('hidden');
+
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0) {
+                const text = result.candidates[0].content.parts[0].text;
+                valuePropText.innerText = text;
+            } else {
+                valuePropText.innerText = "Failed to generate statement. Please try again.";
+                console.error('Gemini API response structure unexpected:', result);
+            }
+        } catch (error) {
+            loadingIndicator.classList.add('hidden'); // Hide loading indicator
+            valuePropText.classList.remove('hidden');
+            valuePropText.innerText = "An error occurred while generating the statement. Please check your network connection.";
+            console.error('Error calling Gemini API:', error);
+        }
+    });
+
+    closeButton.addEventListener('click', () => {
+        valuePropModal.style.display = 'none'; // Hide modal
+    });
+
+    window.addEventListener('click', (event) => {
+        if (event.target === valuePropModal) {
+            valuePropModal.style.display = 'none'; // Hide modal if clicked outside content
+        }
+    });
+
+});
+</script>
+
+</body>
+</html>
